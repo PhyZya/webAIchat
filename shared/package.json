@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/protocol.ts",
-    "./models": "./src/models.ts"
+    "./models": "./src/models.ts",
+    "./sse": "./src/sse.ts"
   }
 }

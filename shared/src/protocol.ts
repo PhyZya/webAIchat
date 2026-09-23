@@ -7,26 +7,38 @@
  * как успешный. Разбирая поток на сервере, мы отдаём вниз явное событие ошибки.
  */
 
-/** Код ошибки. Текст для человека живёт на клиенте — сервер словами не разговаривает. */
-export type ErrorCode =
+/**
+ * Коды ошибок. Список объявлен значением, а не только типом: браузер получает
+ * код строкой по сети, и его нужно проверять в рантайме, а не верить на слово.
+ *
+ * Текст для человека живёт на клиенте — сервер словами не разговаривает.
+ */
+export const ERROR_CODES = [
   /** 429 от OpenRouter: бесплатная модель занята или исчерпан лимит аккаунта. */
-  | 'upstream_rate_limited'
+  'upstream_rate_limited',
   /** Наш собственный лимит запросов с одного адреса. */
-  | 'local_rate_limited'
+  'local_rate_limited',
   /** 402 от OpenRouter: бесплатная квота аккаунта на сегодня исчерпана — ждать бесполезно. */
-  | 'quota_exhausted'
+  'quota_exhausted',
   /** Модель не ответила вовремя или поток завис на середине. */
-  | 'upstream_timeout'
+  'upstream_timeout',
   /** Модель недоступна: снята с каталога, перегружена, отвечает 5xx. */
-  | 'model_unavailable'
+  'model_unavailable',
   /** Прочий отказ OpenRouter. */
-  | 'upstream_error'
+  'upstream_error',
   /** Тело запроса не прошло проверку схемой. */
-  | 'bad_request'
+  'bad_request',
   /** Сломались мы сами. */
-  | 'server_error'
-  /** Соединение с сервером оборвалось на клиенте (сеть пропала). */
-  | 'network_error';
+  'server_error',
+  /** Соединение браузера с нашим сервером оборвалось: пропала сеть, сервер упал. */
+  'network_error',
+] as const;
+
+export type ErrorCode = (typeof ERROR_CODES)[number];
+
+export function isErrorCode(value: unknown): value is ErrorCode {
+  return typeof value === 'string' && (ERROR_CODES as readonly string[]).includes(value);
+}
 
 /** Причина штатного завершения потока. */
 export type DoneReason =
@@ -61,3 +73,41 @@ export const LIMITS = {
   /** Сколько сообщений истории уезжает в модель. */
   maxMessages: 40,
 } as const;
+
+/**
+ * Разбор события, пришедшего строкой из SSE.
+ * Возвращает null, если пришло что-то не по протоколу: рвать разговор из-за
+ * одного непонятного события незачем.
+ */
+export function parseStreamEvent(payload: string): StreamEvent | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payload);
+  } catch {
+    return null;
+  }
+
+  if (typeof parsed !== 'object' || parsed === null) {
+    return null;
+  }
+
+  const event = parsed as Record<string, unknown>;
+
+  if (event.type === 'delta' && typeof event.text === 'string') {
+    return { type: 'delta', text: event.text };
+  }
+
+  if (event.type === 'done') {
+    return { type: 'done', reason: event.reason === 'length' ? 'length' : 'stop' };
+  }
+
+  if (event.type === 'error' && isErrorCode(event.code)) {
+    return {
+      type: 'error',
+      code: event.code,
+      retryAfterSec: typeof event.retryAfterSec === 'number' ? event.retryAfterSec : undefined,
+    };
+  }
+
+  return null;
+}
