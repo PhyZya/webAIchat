@@ -1,0 +1,28 @@
+{
+  "name": "filament",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Веб-чат с языковой моделью через OpenRouter: потоковый вывод, отмена, понятные ошибки",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm run dev -w server\" \"npm run dev -w web\"",
+    "build": "npm run build -w web",
+    "start": "npm run start -w server",
+    "test": "vitest run",
+    "typecheck": "tsc -b --noEmit server web",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
