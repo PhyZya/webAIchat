@@ -43,7 +43,11 @@ export function MessageItem({ turn, modelTitle, onRetry }: Props) {
         ) : null}
 
         {turn.status === 'stopped' ? (
-          <p className="turn-answer__note">Остановлено. В истории остался полученный кусок ответа.</p>
+          <p className="turn-answer__note">
+            {turn.content
+              ? 'Остановлено. Полученный кусок ответа остался в истории.'
+              : 'Остановлено — модель не успела сказать ни слова.'}
+          </p>
         ) : null}
 
         {failure ? (
