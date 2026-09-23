@@ -22,4 +22,12 @@ export const RATE_LIMIT = {
   perMinute: 20,
 } as const;
 
+/**
+ * Как часто отправлять клиенту признак живого соединения, пока модель молчит.
+ *
+ * Без него соединение, в котором просто нет данных, неотличимо от оборванного:
+ * браузер не узнает, что сервер умер, и будет ждать вечно.
+ */
+export const HEARTBEAT_INTERVAL_MS = 5_000;
+
 export const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';

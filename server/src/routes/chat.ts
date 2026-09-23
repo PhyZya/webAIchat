@@ -11,6 +11,7 @@ import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 import { LIMITS } from '@filament/shared';
 import { isKnownModel } from '@filament/shared/models';
+import { HEARTBEAT_INTERVAL_MS } from '../constants.ts';
 import { log, newRequestId } from '../lib/logger.ts';
 import { retryAfterSeconds, takeToken } from '../lib/rate-limit.ts';
 import { streamChat } from '../openrouter/client.ts';
@@ -63,13 +64,25 @@ chatRoute.post('/chat', async (c) => {
   return streamSSE(c, async (stream) => {
     stream.onAbort(() => cancellation.abort());
 
-    for await (const event of streamChat({
-      messages: parsed.data.messages,
-      model: parsed.data.model,
-      requestId,
-      clientSignal: cancellation.signal,
-    })) {
-      await stream.writeSSE({ data: JSON.stringify(event) });
+    // Строка, начинающаяся с двоеточия, по спецификации SSE игнорируется
+    // читателем. Нам она нужна как признак жизни: пока модель думает, данных
+    // в соединении нет, и браузер не может отличить «ждём ответа» от «сервер
+    // упал». Этот же приём использует сам OpenRouter.
+    const heartbeat = setInterval(() => {
+      void stream.write(': keep-alive\n\n');
+    }, HEARTBEAT_INTERVAL_MS);
+
+    try {
+      for await (const event of streamChat({
+        messages: parsed.data.messages,
+        model: parsed.data.model,
+        requestId,
+        clientSignal: cancellation.signal,
+      })) {
+        await stream.writeSSE({ data: JSON.stringify(event) });
+      }
+    } finally {
+      clearInterval(heartbeat);
     }
   });
 });
