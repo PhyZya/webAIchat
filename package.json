@@ -6,6 +6,7 @@
   "license": "MIT",
   "type": "module",
   "workspaces": [
+    "shared",
     "server",
     "web"
   ],
@@ -14,15 +15,16 @@
     "build": "npm run build -w web",
     "start": "npm run start -w server",
     "test": "vitest run",
-    "typecheck": "tsc -b --noEmit server web",
+    "typecheck": "tsc -p server/tsconfig.json && tsc -p web/tsconfig.json",
     "lint": "eslint ."
   },
   "devDependencies": {
+    "@types/node": "^26.6.2",
     "concurrently": "^10.0.5",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.1"
+    "vitest": "^4.1.11"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
   }
 }
