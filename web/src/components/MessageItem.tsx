@@ -2,6 +2,7 @@
 
 import { errorText } from '../features/chat/errorText.ts';
 import type { Turn } from '../features/chat/types.ts';
+import { Markdown } from './Markdown.tsx';
 import { Thread } from './Thread.tsx';
 import './MessageItem.css';
 
@@ -36,10 +37,7 @@ export function MessageItem({ turn, modelTitle, onRetry }: Props) {
         ) : null}
 
         {turn.content ? (
-          <p className="turn-answer__text">
-            {turn.content}
-            {turn.status === 'streaming' ? <span className="turn-answer__caret" aria-hidden="true" /> : null}
-          </p>
+          <Markdown text={turn.content} isStreaming={turn.status === 'streaming'} />
         ) : null}
 
         {turn.status === 'stopped' ? (
