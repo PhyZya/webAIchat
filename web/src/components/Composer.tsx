@@ -24,6 +24,9 @@ export function Composer({ text, isBusy, fieldRef, onChange, onSend, onStop }: P
 
   // Поле растёт под текст: сначала сбрасываем высоту, иначе scrollHeight
   // запомнит прежний размер и поле перестанет уменьшаться.
+  // Ссылка на узел между рендерами не меняется, поэтому в списке зависимостей
+  // она безвредна — линтер считает её лишней только формально.
+  /* oxlint-disable react/exhaustive-effect-dependencies */
   useEffect(() => {
     const field = fieldRef.current;
     if (!field) {
@@ -32,6 +35,7 @@ export function Composer({ text, isBusy, fieldRef, onChange, onSend, onStop }: P
     field.style.height = 'auto';
     field.style.height = `${Math.min(field.scrollHeight, MAX_HEIGHT_PX)}px`;
   }, [text, fieldRef]);
+  /* oxlint-enable react/exhaustive-effect-dependencies */
 
   const submit = () => {
     if (isBusy || !text.trim()) {

@@ -16,11 +16,12 @@
     "start": "npm run start -w server",
     "test": "vitest run",
     "typecheck": "tsc -p server/tsconfig.json && tsc -p web/tsconfig.json",
-    "lint": "eslint ."
+    "lint": "oxlint"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",
     "concurrently": "^10.0.5",
+    "oxlint": "^1.85.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
   },

@@ -31,12 +31,16 @@ export function App() {
     stickToBottom.current = distance < STICK_THRESHOLD_PX;
   }, []);
 
+  // chat.turns здесь не значение, а повод: эффект читает только ссылки,
+  // но выполниться должен каждый раз, когда лента изменилась.
+  /* oxlint-disable react/exhaustive-effect-dependencies */
   useEffect(() => {
     const view = scrollRef.current;
     if (view && stickToBottom.current) {
       view.scrollTop = view.scrollHeight;
     }
   }, [chat.turns]);
+  /* oxlint-enable react/exhaustive-effect-dependencies */
 
   // Esc слушаем на всём окне, а не на кнопке «Стоп»: иначе сочетание работает
   // только тогда, когда фокус уже стоит на этой кнопке, а это бесполезно.

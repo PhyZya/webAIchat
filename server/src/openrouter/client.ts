@@ -76,48 +76,78 @@ async function openStream(params: StreamParams, signal: AbortSignal): Promise<Op
   };
 }
 
+/** Что накопилось по ходу чтения одного ответа. */
+type ReadState = {
+  /** Причина завершения, если модель её назвала. */
+  finish: DoneReason | null;
+  /** Поток закончился — событие уже отдано, читать дальше нечего. */
+  ended: boolean;
+};
+
+function* eventsFromPayload(
+  payload: string,
+  deadlines: Deadlines,
+  state: ReadState,
+): Generator<StreamEvent> {
+  const chunk = parseChunk(payload);
+
+  if (chunk.kind === 'end') {
+    state.ended = true;
+    yield { type: 'done', reason: state.finish ?? 'stop' };
+    return;
+  }
+
+  if (chunk.kind === 'error') {
+    state.ended = true;
+    yield { type: 'error', code: chunk.code };
+    return;
+  }
+
+  if (chunk.finish) {
+    state.finish = chunk.finish;
+  }
+
+  if (chunk.text) {
+    // Первый текст закрывает ожидание старта, дальше следим за паузами между кусками.
+    deadlines.expect(STALL_TIMEOUT_MS, 'stall');
+    yield { type: 'delta', text: chunk.text };
+  }
+}
+
+async function* pump(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  deadlines: Deadlines,
+): AsyncGenerator<StreamEvent> {
+  const decoder = new TextDecoder();
+  const parser = new SseParser();
+  const state: ReadState = { finish: null, ended: false };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    for (const payload of parser.push(decoder.decode(value, { stream: true }))) {
+      yield* eventsFromPayload(payload, deadlines, state);
+      if (state.ended) {
+        return;
+      }
+    }
+  }
+
+  // Соединение закрылось без маркера конца — считаем, что модель договорила.
+  yield { type: 'done', reason: state.finish ?? 'stop' };
+}
+
 async function* readBody(
   body: ReadableStream<Uint8Array>,
   deadlines: Deadlines,
 ): AsyncGenerator<StreamEvent> {
   const reader = body.getReader();
-  const decoder = new TextDecoder();
-  const parser = new SseParser();
-  let finish: DoneReason | null = null;
 
   try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-
-      for (const payload of parser.push(decoder.decode(value, { stream: true }))) {
-        const chunk = parseChunk(payload);
-
-        if (chunk.kind === 'end') {
-          yield { type: 'done', reason: finish ?? 'stop' };
-          return;
-        }
-
-        if (chunk.kind === 'error') {
-          yield { type: 'error', code: chunk.code };
-          return;
-        }
-
-        if (chunk.finish) {
-          finish = chunk.finish;
-        }
-
-        if (chunk.text) {
-          // Первый текст закрывает ожидание старта, дальше следим за паузами между кусками.
-          deadlines.expect(STALL_TIMEOUT_MS, 'stall');
-          yield { type: 'delta', text: chunk.text };
-        }
-      }
-    }
-
-    yield { type: 'done', reason: finish ?? 'stop' };
+    yield* pump(reader, deadlines);
   } finally {
     // Рвём соединение с OpenRouter. Без этого на их стороне генерация продолжается
     // и тратит квоту, даже когда в браузере уже нажали «Стоп».
