@@ -18,7 +18,7 @@ import { log } from '../lib/logger.ts';
 import { parseChunk } from './chunk.ts';
 import { Deadlines } from './deadlines.ts';
 import { codeFromStatus, parseRetryAfter } from './errors.ts';
-import { SseParser } from './sse.ts';
+import { SseParser } from '@filament/shared/sse';
 
 const SYSTEM_PROMPT =
   'Ты — помощник в веб-чате. Отвечай по существу и на языке собеседника. ' +
