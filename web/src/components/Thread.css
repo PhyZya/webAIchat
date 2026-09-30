@@ -1,0 +1,127 @@
+.thread {
+  position: relative;
+  display: block;
+  width: var(--thread-width);
+  height: 100%;
+  min-height: 1.5rem;
+  --thread-color: var(--line-strong);
+}
+
+.thread__line {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--thread-color);
+}
+
+/* Ждём первый токен: нить ещё не сплошная, по ней пробегает рябь. */
+.thread--pending {
+  --thread-color: var(--accent);
+}
+
+.thread--pending .thread__line {
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--thread-color) 0 5px,
+    transparent 5px 12px
+  );
+  background-size: 100% 12px;
+  opacity: 0.8;
+  animation: drift 900ms linear infinite;
+}
+
+@keyframes drift {
+  from {
+    background-position-y: 0;
+  }
+  to {
+    background-position-y: 12px;
+  }
+}
+
+/* Идёт текст: нить сплошная и раскалённая, по ней бежит искра. */
+.thread--streaming {
+  --thread-color: var(--accent);
+}
+
+.thread--streaming .thread__line {
+  overflow: hidden;
+}
+
+.thread--streaming .thread__line::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 44%;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--accent-bright) 45%,
+    #fff5ec 50%,
+    var(--accent-bright) 55%,
+    transparent
+  );
+  animation: spark 1600ms ease-in-out infinite;
+}
+
+@keyframes spark {
+  from {
+    top: -44%;
+  }
+  to {
+    top: 100%;
+  }
+}
+
+/* Договорила: нить остывает. */
+.thread--done {
+  --thread-color: var(--accent);
+}
+
+.thread--done .thread__line {
+  opacity: 0.32;
+}
+
+/* Оборвана человеком или ошибкой: не доходит до низа и расплетается волокнами. */
+.thread--stopped,
+.thread--failed {
+  --thread-color: var(--accent);
+}
+
+.thread--failed {
+  --thread-color: var(--danger);
+}
+
+.thread--stopped .thread__line,
+.thread--failed .thread__line {
+  bottom: 14px;
+  opacity: 0.55;
+}
+
+.thread--stopped .thread__line::after,
+.thread--failed .thread__line::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 11px;
+  height: 14px;
+  transform: translateX(-50%);
+  background: var(--thread-color);
+  opacity: 0.75;
+  clip-path: polygon(
+    41% 0%,
+    59% 0%,
+    74% 24%,
+    56% 33%,
+    90% 60%,
+    62% 50%,
+    71% 100%,
+    47% 55%,
+    20% 88%,
+    38% 44%,
+    5% 54%,
+    29% 28%
+  );
+}

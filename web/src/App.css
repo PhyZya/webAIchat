@@ -1,0 +1,77 @@
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  /* dvh, а не vh: на телефоне адресная строка прячется и высота окна меняется. */
+  height: 100dvh;
+}
+
+.app__header {
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 85%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.app__header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-md);
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0.625rem var(--gap-md);
+}
+
+.app__brand {
+  flex: 0 0 auto;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.app__tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--gap-xs);
+  /* min-width: 0 обязателен: иначе длинное название модели не даёт
+     флекс-элементу сжаться и распирает страницу на узком экране. */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.app__clear {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.app__clear:hover {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+.app__scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.app__column {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0 var(--gap-md);
+}
+
+.app__list {
+  padding: 0;
+  list-style: none;
+}
+
+.app__footer {
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+}

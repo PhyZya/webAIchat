@@ -1,0 +1,99 @@
+.composer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--gap-sm);
+  align-items: end;
+  width: 100%;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: var(--gap-md) var(--gap-md) calc(var(--gap-md) + env(safe-area-inset-bottom));
+}
+
+.composer__field {
+  width: 100%;
+  min-height: 2.75rem;
+  max-height: 200px;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  resize: none;
+  overflow-y: auto;
+}
+
+.composer__field::placeholder {
+  color: var(--ink-faint);
+}
+
+.composer__field:hover {
+  border-color: var(--ink-faint);
+}
+
+.composer__send,
+.composer__stop {
+  height: 2.75rem;
+  padding: 0 1.125rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+}
+
+.composer__send {
+  background: var(--accent);
+  color: #fff;
+}
+
+.composer__send:hover:not(:disabled) {
+  background: var(--accent-bright);
+}
+
+.composer__send:disabled {
+  background: var(--surface-sunken);
+  color: var(--ink-faint);
+  cursor: not-allowed;
+}
+
+.composer__stop {
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.composer__stop:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.composer__help {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--gap-md);
+  color: var(--ink-faint);
+  font-size: 0.75rem;
+}
+
+.composer__help kbd {
+  padding: 0.05em 0.35em;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+}
+
+.composer__counter {
+  white-space: nowrap;
+}
+
+.composer__counter--over {
+  white-space: nowrap;
+  color: var(--danger);
+}
+
+/* На узком экране подсказка по клавишам бесполезна: физической клавиатуры нет. */
+@media (max-width: 560px) {
+  .composer__help span:first-child {
+    display: none;
+  }
+}

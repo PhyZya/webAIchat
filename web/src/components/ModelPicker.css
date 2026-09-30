@@ -1,0 +1,27 @@
+.picker {
+  min-width: 0;
+}
+
+.picker__select {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.picker__select:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+.picker__select:disabled {
+  color: var(--ink-faint);
+  cursor: not-allowed;
+}

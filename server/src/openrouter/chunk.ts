@@ -1,0 +1,78 @@
+/**
+ * Разбор одного события потока OpenRouter.
+ *
+ * Отдельно от сетевого кода, потому что это чистая функция: на вход строка,
+ * на выход решение. Её можно прогнать тестами без ключа, сети и модели.
+ */
+
+import type { DoneReason, ErrorCode, StreamEvent } from '@filament/shared';
+import { codeFromPayload } from './errors.ts';
+
+/** Маркер конца потока в протоколе OpenAI, который повторяет OpenRouter. */
+const END_MARKER = '[DONE]';
+
+export type ChunkResult =
+  /** Поток штатно закончился. */
+  | { kind: 'end' }
+  /** В потоке приехал отказ — дальше читать нечего. */
+  | { kind: 'error'; code: ErrorCode }
+  /** Обычный кусок ответа. text может быть пустым: бывают служебные чанки без текста. */
+  | { kind: 'data'; text: string; finish: DoneReason | null };
+
+type StreamChunkShape = {
+  choices?: Array<{
+    delta?: { content?: unknown };
+    finish_reason?: unknown;
+  }>;
+};
+
+function toDoneReason(value: unknown): DoneReason | null {
+  if (value === 'length') {
+    return 'length';
+  }
+  // stop, content_filter, tool_calls и любое другое непустое значение означают,
+  // что модель больше ничего не пришлёт. Для интерфейса это один и тот же случай.
+  return typeof value === 'string' && value.length > 0 ? 'stop' : null;
+}
+
+export function parseChunk(payload: string): ChunkResult {
+  const trimmed = payload.trim();
+
+  if (trimmed === END_MARKER) {
+    return { kind: 'end' };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    // Нечитаемое событие значит, что кусок текста потерян. Молча пропустить его —
+    // показать испорченный ответ как целый, поэтому честнее оборвать с ошибкой.
+    return { kind: 'error', code: 'upstream_error' };
+  }
+
+  const errorCode = codeFromPayload(parsed);
+  if (errorCode) {
+    return { kind: 'error', code: errorCode };
+  }
+
+  const choice = (parsed as StreamChunkShape).choices?.[0];
+  const content = choice?.delta?.content;
+
+  return {
+    kind: 'data',
+    text: typeof content === 'string' ? content : '',
+    finish: toDoneReason(choice?.finish_reason),
+  };
+}
+
+/**
+ * Итог потока, который закрылся без маркера [DONE].
+ *
+ * Верить можно только finish_reason: если модель его назвала, она договорила.
+ * Голый конец соединения бывает и при обрыве сети, и показывать оборванный
+ * ответ как успешный нельзя.
+ */
+export function eventFromClosedStream(finish: DoneReason | null): StreamEvent {
+  return finish ? { type: 'done', reason: finish } : { type: 'error', code: 'upstream_error' };
+}

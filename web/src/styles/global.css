@@ -1,0 +1,91 @@
+/** Сброс, типографика и фокус. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* На iOS ввод мельче 16px заставляет Safari приближать страницу при фокусе. */
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+p,
+ul,
+ol {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/**
+ * Фокус.
+ *
+ * Задание просит убрать стандартную обводку — она действительно выглядит
+ * по-разному в разных браузерах. Но просто погасить её нельзя: тогда ломается
+ * второе требование задания, работа с клавиатуры. Поэтому браузерную обводку
+ * убираем и рисуем свою — одинаковую везде и только для клавиатуры,
+ * :focus-visible не показывает её при щелчке мышью.
+ */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  /* Прозрачная, а не none: в режиме высокой контрастности Windows тени
+     не рисуются, и без этой строки фокус снова стал бы невидим. Там браузер
+     сам перекрашивает прозрачную обводку в системный цвет. */
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 2px var(--paper),
+    0 0 0 4px var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+/** Видно только программе чтения с экрана. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/** Никакой анимации тем, кто попросил её не показывать. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
