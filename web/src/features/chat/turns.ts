@@ -6,7 +6,7 @@
  * Все функции возвращают новый список и не трогают старый.
  */
 
-import type { ChatMessage } from '@filament/shared';
+import { LIMITS, type ChatMessage } from '@filament/shared';
 import type { Turn, TurnStatus } from './types.ts';
 
 export function createTurn(role: Turn['role'], content: string, status: TurnStatus): Turn {
@@ -29,9 +29,25 @@ export function appendText(turns: Turn[], id: string, text: string): Turn[] {
  * Пустые реплики выбрасываем: сервер их не примет, да и смысла в них нет.
  * Оборванный ответ, наоборот, оставляем — он часть разговора, и модель должна
  * видеть, на чём её прервали.
+ *
+ * Границы сервера соблюдаем здесь же, иначе длинный разговор однажды целиком
+ * получит отказ: берём только последние сообщения, а слишком длинный ответ
+ * обрезаем с начала — конец ближе к следующему вопросу. На экране история
+ * остаётся полной, обрезается только то, что уходит в модель.
  */
 export function toChatMessages(turns: Turn[]): ChatMessage[] {
-  return turns
+  const messages = turns
     .filter((turn) => turn.content.trim().length > 0)
-    .map((turn) => ({ role: turn.role, content: turn.content }));
+    .map((turn) => ({
+      role: turn.role,
+      content:
+        turn.role === 'assistant'
+          ? turn.content.slice(-LIMITS.maxAssistantMessageChars)
+          : turn.content,
+    }));
+
+  // Разговор, который начинается с ответа модели без вопроса, выглядит для неё
+  // странно, поэтому после среза первым всегда идёт вопрос.
+  const limited = messages.slice(-LIMITS.maxMessages);
+  return limited[0]?.role === 'assistant' ? limited.slice(1) : limited;
 }

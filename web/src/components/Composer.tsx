@@ -54,7 +54,7 @@ export function Composer({ text, isBusy, fieldRef, onChange, onSend, onStop }: P
     }
   };
 
-  const left = LIMITS.maxMessageChars - text.length;
+  const left = LIMITS.maxUserMessageChars - text.length;
   const showCounter = left <= COUNTER_MARGIN;
 
   return (
@@ -74,11 +74,11 @@ export function Composer({ text, isBusy, fieldRef, onChange, onSend, onStop }: P
         ref={fieldRef}
         className="composer__field"
         value={text}
-        onChange={(event) => onChange(event.target.value.slice(0, LIMITS.maxMessageChars))}
+        onChange={(event) => onChange(event.target.value.slice(0, LIMITS.maxUserMessageChars))}
         onKeyDown={handleKeyDown}
         placeholder="Спросите что-нибудь"
         rows={1}
-        maxLength={LIMITS.maxMessageChars}
+        maxLength={LIMITS.maxUserMessageChars}
         aria-describedby="composer-help"
       />
 

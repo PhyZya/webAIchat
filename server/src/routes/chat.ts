@@ -16,10 +16,16 @@ import { log, newRequestId } from '../lib/logger.ts';
 import { retryAfterSeconds, takeToken } from '../lib/rate-limit.ts';
 import { streamChat } from '../openrouter/client.ts';
 
-const messageSchema = z.object({
-  role: z.enum(['user', 'assistant']),
-  content: z.string().min(1).max(LIMITS.maxMessageChars),
-});
+const messageSchema = z.discriminatedUnion('role', [
+  z.object({
+    role: z.literal('user'),
+    content: z.string().min(1).max(LIMITS.maxUserMessageChars),
+  }),
+  z.object({
+    role: z.literal('assistant'),
+    content: z.string().min(1).max(LIMITS.maxAssistantMessageChars),
+  }),
+]);
 
 const requestSchema = z.object({
   messages: z.array(messageSchema).min(1).max(LIMITS.maxMessages),
