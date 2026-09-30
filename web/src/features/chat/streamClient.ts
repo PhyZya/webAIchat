@@ -71,8 +71,16 @@ async function pump(
 
     for (const payload of parser.push(decoder.decode(value, { stream: true }))) {
       const event = parseStreamEvent(payload);
-      if (event) {
-        onEvent(event);
+      if (!event) {
+        continue;
+      }
+
+      onEvent(event);
+      // После done или error сервер больше ничего не пришлёт. Ждать закрытия
+      // соединения незачем: если посредник его придержит, интерфейс ещё
+      // двадцать секунд показывал бы генерацию, а потом — ложный обрыв связи.
+      if (event.type !== 'delta') {
+        return;
       }
     }
   }

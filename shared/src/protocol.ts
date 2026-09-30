@@ -103,15 +103,20 @@ export function parseStreamEvent(payload: string): StreamEvent | null {
     return { type: 'delta', text: event.text };
   }
 
-  if (event.type === 'done') {
-    return { type: 'done', reason: event.reason === 'length' ? 'length' : 'stop' };
+  if (event.type === 'done' && (event.reason === 'stop' || event.reason === 'length')) {
+    return { type: 'done', reason: event.reason };
   }
 
   if (event.type === 'error' && isErrorCode(event.code)) {
+    // NaN или отрицательное число превратились бы в «подождите NaN с.».
+    const retryAfterSec = event.retryAfterSec;
     return {
       type: 'error',
       code: event.code,
-      retryAfterSec: typeof event.retryAfterSec === 'number' ? event.retryAfterSec : undefined,
+      retryAfterSec:
+        typeof retryAfterSec === 'number' && Number.isFinite(retryAfterSec) && retryAfterSec >= 0
+          ? retryAfterSec
+          : undefined,
     };
   }
 
