@@ -26,14 +26,14 @@ export type ModelOption = {
 // как существующий элемент и годится в значение по умолчанию.
 export const MODELS = [
   {
-    id: 'z-ai/glm-5.2:free',
-    title: 'GLM 5.2',
-    hint: 'Короткие ответы по делу',
-  },
-  {
     id: 'nvidia/nemotron-3-super-120b-a12b:free',
     title: 'Nemotron 3 Super',
-    hint: 'Крупная модель, отвечает подробнее',
+    hint: 'Быстрая, отвечает подробно',
+  },
+  {
+    id: 'nvidia/nemotron-3-ultra-550b-a55b:free',
+    title: 'Nemotron 3 Ultra',
+    hint: 'Самая крупная, думает чуть дольше',
   },
   {
     id: 'google/gemma-4-31b-it:free',
