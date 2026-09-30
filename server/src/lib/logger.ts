@@ -7,6 +7,8 @@
  * пользователя никуда не утекает.
  */
 
+import { randomUUID } from 'node:crypto';
+
 type Level = 'info' | 'warn' | 'error';
 
 type Fields = Record<string, string | number | boolean | undefined>;
@@ -32,7 +34,7 @@ export const log = {
   error: (event: string, fields?: Fields) => write('error', event, fields),
 };
 
-/** Короткий идентификатор запроса — чтобы связать строки одного обращения в логе. */
+/** Идентификатор запроса — чтобы связать строки одного обращения в логе. */
 export function newRequestId(): string {
-  return Math.random().toString(36).slice(2, 10);
+  return randomUUID();
 }

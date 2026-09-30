@@ -22,10 +22,20 @@ function requireEnv(name: string): string {
   return value;
 }
 
+// Опечатка в PORT иначе превращается в NaN, и сервер падает с непонятной
+// ошибкой уже при попытке слушать порт.
+function readPort(): number {
+  const port = Number(process.env.PORT ?? 8787);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error('PORT должен быть целым числом от 1 до 65535.');
+  }
+  return port;
+}
+
 export const config = {
   /** Ключ OpenRouter. Читается только здесь и уходит только в заголовок исходящего запроса. */
   openRouterKey: requireEnv('OPENROUTER_API_KEY'),
-  port: Number(process.env.PORT ?? 8787),
+  port: readPort(),
   /** OpenRouter показывает эти два поля в статистике аккаунта. Не секреты. */
   appUrl: process.env.APP_URL ?? 'http://localhost:5173',
   appTitle: process.env.APP_TITLE ?? 'Filament',
