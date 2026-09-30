@@ -9,8 +9,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_MODEL_ID } from '@filament/shared/models';
 import { clearHistory, loadHistory, saveHistory } from './history.ts';
 import { streamChat } from './streamClient.ts';
+import type { StreamEvent } from '@filament/shared';
 import type { Turn } from './types.ts';
-import { appendText, createTurn, patchTurn, toChatMessages } from './turns.ts';
+import {
+  appendText,
+  createAssistantTurn,
+  createUserTurn,
+  patchTurn,
+  prepareRetry,
+  toChatMessages,
+} from './turns.ts';
 
 export type ChatController = {
   turns: Turn[];
@@ -19,7 +27,7 @@ export type ChatController = {
   isBusy: boolean;
   send: (text: string) => void;
   stop: () => void;
-  retry: () => void;
+  retry: (answerId: string) => void;
   clear: () => void;
   setModel: (model: string) => void;
 };
@@ -30,6 +38,9 @@ export function useChat(): ChatController {
   const [isBusy, setBusy] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
+  // Дублирует isBusy, но меняется сразу, а не на следующем рендере. Без него
+  // быстрый двойной Enter успевал отправить два запроса подряд.
+  const busyRef = useRef(false);
   const stoppedByUserRef = useRef(false);
 
   // Пишем в хранилище только в покое: во время потока это сотни записей в секунду
@@ -44,37 +55,46 @@ export function useChat(): ChatController {
   // иначе сервер продолжит тянуть ответ в никуда.
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  const run = useCallback(
-    async (history: Turn[], answerId: string) => {
-      const controller = new AbortController();
-      abortRef.current = controller;
-      stoppedByUserRef.current = false;
-      setBusy(true);
+  // Модель передаётся явно, а не читается из состояния: ответ должен уйти
+  // в ту модель, которая записана в его реплике.
+  const run = useCallback(async (history: Turn[], answerId: string, modelId: string) => {
+    const controller = new AbortController();
+    abortRef.current = controller;
+    busyRef.current = true;
+    stoppedByUserRef.current = false;
+    setBusy(true);
 
-      /** Пришло ли итоговое событие — успех или отказ. */
-      let settled = false;
+    /** Пришло ли итоговое событие — успех или отказ. */
+    let settled = false;
 
-      await streamChat({ messages: toChatMessages(history), model }, controller.signal, (event) => {
-        if (event.type === 'delta') {
-          setTurns((current) => appendText(current, answerId, event.text));
-          return;
-        }
+    const handleEvent = (event: StreamEvent) => {
+      if (event.type === 'delta') {
+        setTurns((current) => appendText(current, answerId, event.text));
+        return;
+      }
 
-        settled = true;
+      settled = true;
 
-        if (event.type === 'error') {
-          setTurns((current) =>
-            patchTurn(current, answerId, {
-              status: 'failed',
-              errorCode: event.code,
-              retryAfterSec: event.retryAfterSec,
-            }),
-          );
-          return;
-        }
+      if (event.type === 'error') {
+        setTurns((current) =>
+          patchTurn(current, answerId, {
+            status: 'failed',
+            errorCode: event.code,
+            retryAfterSec: event.retryAfterSec,
+          }),
+        );
+        return;
+      }
 
-        setTurns((current) => patchTurn(current, answerId, finishPatch(current, answerId)));
-      });
+      setTurns((current) => patchTurn(current, answerId, finishPatch(current, answerId)));
+    };
+
+    try {
+      await streamChat(
+        { messages: toChatMessages(history), model: modelId },
+        controller.signal,
+        handleEvent,
+      );
 
       if (!settled) {
         // Поток закончился, а итогового события не было: либо нажали «Стоп»,
@@ -85,28 +105,33 @@ export function useChat(): ChatController {
             : patchTurn(current, answerId, { status: 'failed', errorCode: 'network_error' }),
         );
       }
-
-      abortRef.current = null;
-      setBusy(false);
-    },
-    [model],
-  );
+    } finally {
+      // Снимаем «занято» в finally: исключение внутри не должно оставить
+      // интерфейс в вечной генерации. Проверка controller нужна на случай,
+      // если после «Очистить» уже начался новый запрос — его флаг не трогаем.
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        busyRef.current = false;
+        setBusy(false);
+      }
+    }
+  }, []);
 
   const send = useCallback(
     (text: string) => {
       const content = text.trim();
-      if (!content || isBusy) {
+      if (!content || busyRef.current) {
         return;
       }
 
-      const question = createTurn('user', content, 'done');
-      const answer = createTurn('assistant', '', 'pending');
+      const question = createUserTurn(content);
+      const answer = createAssistantTurn(model);
       const history = [...turns, question];
 
       setTurns([...history, answer]);
-      void run(history, answer.id);
+      void run(history, answer.id, model);
     },
-    [isBusy, run, turns],
+    [model, run, turns],
   );
 
   const stop = useCallback(() => {
@@ -114,19 +139,24 @@ export function useChat(): ChatController {
     abortRef.current?.abort();
   }, []);
 
-  const retry = useCallback(() => {
-    const last = turns.at(-1);
-    if (isBusy || last?.role !== 'assistant') {
-      return;
-    }
+  // Повтор идёт в модель, выбранную сейчас: если прежняя ответила 429,
+  // человек как раз переключился на соседнюю.
+  const retry = useCallback(
+    (answerId: string) => {
+      if (busyRef.current) {
+        return;
+      }
 
-    // Выкидываем неудачный ответ и задаём тот же вопрос заново.
-    const history = turns.slice(0, -1);
-    const answer = createTurn('assistant', '', 'pending');
+      const plan = prepareRetry(turns, answerId, model);
+      if (!plan) {
+        return;
+      }
 
-    setTurns([...history, answer]);
-    void run(history, answer.id);
-  }, [isBusy, run, turns]);
+      setTurns(plan.turns);
+      void run(plan.history, plan.answer.id, model);
+    },
+    [model, run, turns],
+  );
 
   const clear = useCallback(() => {
     abortRef.current?.abort();

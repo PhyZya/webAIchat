@@ -10,27 +10,59 @@
  * версии или чужие данные с того же адреса, поэтому всё проверяется по форме.
  */
 
-import type { Turn } from './types.ts';
+import { isErrorCode } from '@filament/shared';
+import type { Turn, TurnStatus } from './types.ts';
 
 const STORAGE_KEY = 'filament.history.v1';
+const TURN_STATUSES = new Set<TurnStatus>(['pending', 'streaming', 'done', 'stopped', 'failed']);
 
 /** Незавершённые реплики не восстанавливаем: поток после перезагрузки не продолжить. */
 function isRestorable(turn: Turn): boolean {
   return turn.status !== 'pending' && turn.status !== 'streaming';
 }
 
+function isTurnStatus(value: unknown): value is TurnStatus {
+  return typeof value === 'string' && TURN_STATUSES.has(value as TurnStatus);
+}
+
+function hasValidOptionalFields(turn: Record<string, unknown>): boolean {
+  return (
+    (turn.modelId === undefined || typeof turn.modelId === 'string') &&
+    (turn.errorCode === undefined || isErrorCode(turn.errorCode)) &&
+    (turn.retryAfterSec === undefined ||
+      (typeof turn.retryAfterSec === 'number' &&
+        Number.isFinite(turn.retryAfterSec) &&
+        turn.retryAfterSec >= 0))
+  );
+}
+
+/**
+ * Проверяет не только наличие полей, но и их значения: реплика с неизвестным
+ * статусом или кодом ошибки отрисовалась бы непредсказуемо.
+ */
 function isTurn(value: unknown): value is Turn {
   if (typeof value !== 'object' || value === null) {
     return false;
   }
   const turn = value as Record<string, unknown>;
 
-  return (
+  const hasValidBase =
     typeof turn.id === 'string' &&
     (turn.role === 'user' || turn.role === 'assistant') &&
     typeof turn.content === 'string' &&
-    typeof turn.status === 'string'
-  );
+    isTurnStatus(turn.status) &&
+    hasValidOptionalFields(turn);
+
+  if (!hasValidBase) {
+    return false;
+  }
+
+  // Вопрос человека бывает только отправленным, а упавший ответ без кода
+  // ошибки нечем объяснить на экране.
+  if (turn.role === 'user') {
+    return turn.status === 'done';
+  }
+  return turn.status !== 'failed' || isErrorCode(turn.errorCode);
 }
 
 export function loadHistory(): Turn[] {

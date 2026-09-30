@@ -1,7 +1,6 @@
 /** Сборка экрана: шапка, лента диалога, поле ввода и клавиатурные сокращения. */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { findModel } from '@filament/shared/models';
 import { Composer } from './components/Composer.tsx';
 import { EmptyState } from './components/EmptyState.tsx';
 import { MessageItem } from './components/MessageItem.tsx';
@@ -61,8 +60,6 @@ export function App() {
     fieldRef.current?.focus();
   };
 
-  const modelTitle = findModel(chat.model)?.title ?? chat.model;
-
   return (
     <div className="app">
       <header className="app__header">
@@ -87,12 +84,7 @@ export function App() {
           ) : (
             <ol className="app__list" role="log">
               {chat.turns.map((turn) => (
-                <MessageItem
-                  key={turn.id}
-                  turn={turn}
-                  modelTitle={modelTitle}
-                  onRetry={chat.retry}
-                />
+                <MessageItem key={turn.id} turn={turn} onRetry={chat.retry} />
               ))}
             </ol>
           )}

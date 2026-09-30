@@ -7,13 +7,20 @@
  */
 
 import { LIMITS, type ChatMessage } from '@filament/shared';
-import type { Turn, TurnStatus } from './types.ts';
+import type { Turn } from './types.ts';
 
-export function createTurn(role: Turn['role'], content: string, status: TurnStatus): Turn {
-  return { id: crypto.randomUUID(), role, content, status };
+export function createUserTurn(content: string): Turn {
+  return { id: crypto.randomUUID(), role: 'user', content, status: 'done' };
 }
 
-export function patchTurn(turns: Turn[], id: string, patch: Partial<Turn>): Turn[] {
+export function createAssistantTurn(modelId: string): Turn {
+  return { id: crypto.randomUUID(), role: 'assistant', content: '', status: 'pending', modelId };
+}
+
+/** id и роль реплики не меняются никогда — тип не даёт переписать их случайно. */
+type TurnPatch = Partial<Omit<Turn, 'id' | 'role'>>;
+
+export function patchTurn(turns: Turn[], id: string, patch: TurnPatch): Turn[] {
   return turns.map((turn) => (turn.id === id ? { ...turn, ...patch } : turn));
 }
 
@@ -21,6 +28,34 @@ export function appendText(turns: Turn[], id: string, text: string): Turn[] {
   return turns.map((turn) =>
     turn.id === id ? { ...turn, content: turn.content + text, status: 'streaming' } : turn,
   );
+}
+
+export type RetryPlan = {
+  /** Что уходит в модель: всё до неудачного ответа. */
+  history: Turn[];
+  /** Что остаётся на экране: та же история плюс новый пустой ответ. */
+  turns: Turn[];
+  answer: Turn;
+};
+
+/**
+ * Повтор конкретного неудачного ответа.
+ *
+ * Ищем по id, а не берём последнюю реплику: иначе кнопка «Повторить» у старой
+ * ошибки повторяла бы совсем другой ответ. Всё, что было после неудачного
+ * ответа, отбрасывается — разговор продолжается с этого места.
+ */
+export function prepareRetry(turns: Turn[], answerId: string, modelId: string): RetryPlan | null {
+  const answerIndex = turns.findIndex((turn) => turn.id === answerId);
+  const failedAnswer = turns[answerIndex];
+
+  if (failedAnswer?.role !== 'assistant' || failedAnswer.status !== 'failed') {
+    return null;
+  }
+
+  const history = turns.slice(0, answerIndex);
+  const answer = createAssistantTurn(modelId);
+  return { history, answer, turns: [...history, answer] };
 }
 
 /**

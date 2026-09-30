@@ -1,5 +1,6 @@
 /** Одна реплика диалога: вопрос человека или ответ модели. */
 
+import { findModel } from '@filament/shared/models';
 import { errorText } from '../features/chat/errorText.ts';
 import type { Turn } from '../features/chat/types.ts';
 import { Markdown } from './Markdown.tsx';
@@ -8,12 +9,10 @@ import './MessageItem.css';
 
 type Props = {
   turn: Turn;
-  /** Подпись над ответом — какая модель отвечает. */
-  modelTitle: string;
-  onRetry: () => void;
+  onRetry: (answerId: string) => void;
 };
 
-export function MessageItem({ turn, modelTitle, onRetry }: Props) {
+export function MessageItem({ turn, onRetry }: Props) {
   if (turn.role === 'user') {
     return (
       <li className="turn-question">
@@ -24,6 +23,9 @@ export function MessageItem({ turn, modelTitle, onRetry }: Props) {
   }
 
   const failure = turn.errorCode ? errorText(turn.errorCode) : null;
+  // Модель могли убрать из списка после того, как ответ сохранился в истории, —
+  // тогда показываем её идентификатор как есть.
+  const modelTitle = turn.modelId ? (findModel(turn.modelId)?.title ?? turn.modelId) : 'Модель';
 
   return (
     <li className="turn-answer">
@@ -56,7 +58,11 @@ export function MessageItem({ turn, modelTitle, onRetry }: Props) {
               {turn.retryAfterSec ? ` Подождите примерно ${turn.retryAfterSec} с.` : ''}
             </p>
             {failure.canRetry ? (
-              <button type="button" className="turn-failure__retry" onClick={onRetry}>
+              <button
+                type="button"
+                className="turn-failure__retry"
+                onClick={() => onRetry(turn.id)}
+              >
                 Повторить
               </button>
             ) : null}
