@@ -15,7 +15,7 @@ import {
   TOTAL_TIMEOUT_MS,
 } from '../constants.ts';
 import { log } from '../lib/logger.ts';
-import { parseChunk } from './chunk.ts';
+import { eventFromClosedStream, parseChunk } from './chunk.ts';
 import { Deadlines } from './deadlines.ts';
 import { codeFromStatus, parseRetryAfter } from './errors.ts';
 import { SseParser } from '@filament/shared/sse';
@@ -32,9 +32,11 @@ type StreamParams = {
   clientSignal: AbortSignal;
 };
 
+type ErrorEvent = Extract<StreamEvent, { type: 'error' }>;
+
 type OpenResult =
   | { ok: true; body: ReadableStream<Uint8Array> }
-  | { ok: false; event: StreamEvent };
+  | { ok: false; event: ErrorEvent };
 
 async function openStream(params: StreamParams, signal: AbortSignal): Promise<OpenResult> {
   const response = await fetch(OPENROUTER_URL, {
@@ -136,8 +138,9 @@ async function* pump(
     }
   }
 
-  // Соединение закрылось без маркера конца — считаем, что модель договорила.
-  yield { type: 'done', reason: state.finish ?? 'stop' };
+  // Соединение закрылось без маркера конца. Это штатно, только если модель
+  // успела назвать причину завершения, — иначе это обрыв.
+  yield eventFromClosedStream(state.finish);
 }
 
 async function* readBody(
@@ -176,7 +179,7 @@ export async function* streamChat(params: StreamParams): AsyncGenerator<StreamEv
 
     const opened = await openStream(params, signal);
     if (!opened.ok) {
-      outcome = 'rejected';
+      outcome = `rejected:${opened.event.code}`;
       yield opened.event;
       return;
     }

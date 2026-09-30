@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseChunk } from './chunk.ts';
+import { eventFromClosedStream, parseChunk } from './chunk.ts';
 
 describe('parseChunk', () => {
   it('достаёт текст из обычного куска ответа', () => {
@@ -26,11 +26,20 @@ describe('parseChunk', () => {
     expect(result).toEqual({
       kind: 'error',
       code: 'upstream_rate_limited',
-      message: 'rate limited',
     });
   });
 
-  it('не роняет разбор на битом JSON, а пропускает кусок', () => {
-    expect(parseChunk('{не json')).toEqual({ kind: 'data', text: '', finish: null });
+  it('считает повреждённое событие ошибкой внешнего сервиса', () => {
+    expect(parseChunk('{не json')).toEqual({ kind: 'error', code: 'upstream_error' });
+  });
+});
+
+describe('eventFromClosedStream', () => {
+  it('считает конец соединения без причины завершения обрывом', () => {
+    expect(eventFromClosedStream(null)).toEqual({ type: 'error', code: 'upstream_error' });
+  });
+
+  it('принимает конец соединения после finish_reason за штатное завершение', () => {
+    expect(eventFromClosedStream('length')).toEqual({ type: 'done', reason: 'length' });
   });
 });

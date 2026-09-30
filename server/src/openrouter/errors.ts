@@ -75,13 +75,3 @@ export function codeFromPayload(payload: unknown): ErrorCode | undefined {
 
   return typeof error.code === 'number' ? codeFromStatus(error.code) : 'upstream_error';
 }
-
-/** Текст ошибки от OpenRouter — только для лога, пользователю он не показывается. */
-export function messageFromPayload(payload: unknown): string | undefined {
-  if (typeof payload !== 'object' || payload === null) {
-    return undefined;
-  }
-
-  const { error } = payload as UpstreamErrorShape;
-  return typeof error?.message === 'string' ? error.message.slice(0, 200) : undefined;
-}

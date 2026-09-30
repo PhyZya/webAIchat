@@ -41,6 +41,11 @@ export class Deadlines {
   }
 
   private trip(reason: DeadlineReason): void {
+    // Общий срок и срок этапа могут выйти почти одновременно. Первая причина —
+    // настоящая, вторая не должна её переписать.
+    if (this.controller.signal.aborted) {
+      return;
+    }
     this.reason = reason;
     this.controller.abort();
     this.dispose();

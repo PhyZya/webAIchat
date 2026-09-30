@@ -68,8 +68,18 @@ chatRoute.post('/chat', async (c) => {
     // читателем. Нам она нужна как признак жизни: пока модель думает, данных
     // в соединении нет, и браузер не может отличить «ждём ответа» от «сервер
     // упал». Этот же приём использует сам OpenRouter.
+    // Неудачная запись значит, что браузера на том конце уже нет: без обработки
+    // это было бы необработанное отклонение промиса, а запрос к модели жил бы дальше.
     const heartbeat = setInterval(() => {
-      void stream.write(': keep-alive\n\n');
+      void stream.write(': keep-alive\n\n').catch((error: unknown) => {
+        if (!cancellation.signal.aborted) {
+          log.warn('response.heartbeat_failed', {
+            requestId,
+            reason: error instanceof Error ? error.message.slice(0, 200) : 'неизвестная ошибка',
+          });
+        }
+        cancellation.abort();
+      });
     }, HEARTBEAT_INTERVAL_MS);
 
     try {

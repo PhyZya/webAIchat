@@ -5,8 +5,8 @@
  * на выход решение. Её можно прогнать тестами без ключа, сети и модели.
  */
 
-import type { DoneReason, ErrorCode } from '@filament/shared';
-import { codeFromPayload, messageFromPayload } from './errors.ts';
+import type { DoneReason, ErrorCode, StreamEvent } from '@filament/shared';
+import { codeFromPayload } from './errors.ts';
 
 /** Маркер конца потока в протоколе OpenAI, который повторяет OpenRouter. */
 const END_MARKER = '[DONE]';
@@ -15,7 +15,7 @@ export type ChunkResult =
   /** Поток штатно закончился. */
   | { kind: 'end' }
   /** В потоке приехал отказ — дальше читать нечего. */
-  | { kind: 'error'; code: ErrorCode; message?: string }
+  | { kind: 'error'; code: ErrorCode }
   /** Обычный кусок ответа. text может быть пустым: бывают служебные чанки без текста. */
   | { kind: 'data'; text: string; finish: DoneReason | null };
 
@@ -46,13 +46,14 @@ export function parseChunk(payload: string): ChunkResult {
   try {
     parsed = JSON.parse(trimmed);
   } catch {
-    // Нечитаемое событие — не повод рвать весь ответ: пропускаем его и читаем дальше.
-    return { kind: 'data', text: '', finish: null };
+    // Нечитаемое событие значит, что кусок текста потерян. Молча пропустить его —
+    // показать испорченный ответ как целый, поэтому честнее оборвать с ошибкой.
+    return { kind: 'error', code: 'upstream_error' };
   }
 
   const errorCode = codeFromPayload(parsed);
   if (errorCode) {
-    return { kind: 'error', code: errorCode, message: messageFromPayload(parsed) };
+    return { kind: 'error', code: errorCode };
   }
 
   const choice = (parsed as StreamChunkShape).choices?.[0];
@@ -63,4 +64,15 @@ export function parseChunk(payload: string): ChunkResult {
     text: typeof content === 'string' ? content : '',
     finish: toDoneReason(choice?.finish_reason),
   };
+}
+
+/**
+ * Итог потока, который закрылся без маркера [DONE].
+ *
+ * Верить можно только finish_reason: если модель его назвала, она договорила.
+ * Голый конец соединения бывает и при обрыве сети, и показывать оборванный
+ * ответ как успешный нельзя.
+ */
+export function eventFromClosedStream(finish: DoneReason | null): StreamEvent {
+  return finish ? { type: 'done', reason: finish } : { type: 'error', code: 'upstream_error' };
 }
