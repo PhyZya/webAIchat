@@ -55,7 +55,11 @@ textarea {
 }
 
 :focus-visible {
-  outline: none;
+  /* Прозрачная, а не none: в режиме высокой контрастности Windows тени
+     не рисуются, и без этой строки фокус снова стал бы невидим. Там браузер
+     сам перекрашивает прозрачную обводку в системный цвет. */
+  outline: 2px solid transparent;
+  outline-offset: 2px;
   box-shadow:
     0 0 0 2px var(--paper),
     0 0 0 4px var(--accent);
